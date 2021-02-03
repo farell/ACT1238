@@ -12,16 +12,20 @@ namespace DataAcquisition
     class SerialACT4238Config
     {
         public string Database = "Data Source = LongRui.db";
-        public string ip;
-        public int port;
+        public string localIP;
+        public int localPort;
+        public string remoteIP;
+        public int remotePort;
         public string path;
         public int id;
         public string deviceType;
 
-        public SerialACT4238Config(string _ip,int _port,string _path, int _id, string type)
+        public SerialACT4238Config(string _localIp, int _localPort, string _remoteIp, int _remotePort, string _path, int _id, string type)
         {
-            this.ip = _ip;
-            this.port = _port;
+            this.localIP = _localIp;
+            this.localPort = _localPort;
+            this.remoteIP = _remoteIp;
+            this.remotePort = _remotePort;
             this.path = _path;
             this.id = _id;
             this.deviceType = type;
@@ -50,7 +54,7 @@ namespace DataAcquisition
 
         public ACT1238(SerialACT4238Config config, Dictionary<int, StrainChannel> channels)
         {
-            this.Tag = config.ip + " : ";
+            this.Tag = config.remoteIP + " : ";
             this.config = config;
             strainChannels = channels;
 
@@ -73,7 +77,9 @@ namespace DataAcquisition
 
         public void Start()
         {
-            udpClient = new UdpClient(config.port);
+            //udpClient = new UdpClient(config.port);
+            IPEndPoint iPEndPoint = new IPEndPoint(IPAddress.Parse(config.localIP), config.remotePort);
+            udpClient = new UdpClient(iPEndPoint);
             backgroundWorkerReceiveData.RunWorkerAsync();
         }
 
@@ -104,6 +110,8 @@ namespace DataAcquisition
                     StringBuilder sb = new StringBuilder(1024);
                     sb.Append(stamp + ",");
                     int startIndex = 4;
+
+                    List<UpdateArgs> args = new List<UpdateArgs>();
                     for (int i = 0; i < NumberOfChannels; i++)
                     {
                         if (!strainChannels.ContainsKey(i + 1))
@@ -136,20 +144,26 @@ namespace DataAcquisition
                             strainVal = strain.ToString();
                             strainState = "Success";
                         }
-                        UpdateDataGridViewCellsEventArgs args = new UpdateDataGridViewCellsEventArgs();
-                        args.index = sc.gridIndex;
-                        args.digit = digit;
-                        args.stamp = stamp;
-                        args.temp = temperature;
-                        args.strain = strainVal;
-                        args.state = strainState;
-                        OnUpdateDataGridView(args);
+                        UpdateArgs arg = new UpdateArgs();
+                        arg.index = sc.gridIndex;
+                        arg.digit = digit;
+                        arg.stamp = stamp;
+                        arg.temp = temperature;
+                        arg.strain = strainVal;
+                        arg.state = strainState;
+
+                        args.Add(arg);
 
                         sb.Append(digit.ToString() + "," + temperature.ToString() + ",");
                     }
+
+                    UpdateDataGridViewCellsEventArgs eventArgs = new UpdateDataGridViewCellsEventArgs();
+                    eventArgs.args = args;
+                    OnUpdateDataGridView(eventArgs);
+
                     sb.Remove(sb.Length - 1, 1);
                     sb.Append("\r\n");
-                    AppendRecord(sb,this.config.ip);
+                    AppendRecord(sb,this.config.remoteIP);
                     if (bgWorker.CancellationPending == true)
                     {
                         e.Cancel = true;
@@ -223,6 +237,11 @@ namespace DataAcquisition
     }
 
     public class UpdateDataGridViewCellsEventArgs : EventArgs
+    {
+        public List<UpdateArgs> args;
+    }
+
+    public class UpdateArgs
     {
         public int index { get; set; }
         public string stamp { get; set; }

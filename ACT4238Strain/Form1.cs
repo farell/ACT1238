@@ -21,7 +21,7 @@ namespace ACT1238Strain
         {
             InitializeComponent();
             deviceList = new Dictionary<string, ACT1238>();
-            buttonStopAcquisit.Enabled = false;
+            ToolStripMenuItemStop.Enabled = false;
             LoadDevices();
         }
 
@@ -63,25 +63,27 @@ namespace ACT1238Strain
             using (SQLiteConnection connection = new SQLiteConnection(database))
             {
                 connection.Open();
-                string strainStatement = "select Ip,Port,DeviceId,Path,Type,Desc from SensorInfo";
+                string strainStatement = "select LocalIP,LocalPort,DeviceId,Path,Type,Desc,RemoteIP,RemotePort from SensorInfo";
                 SQLiteCommand command2 = new SQLiteCommand(strainStatement, connection);
                 using (SQLiteDataReader reader = command2.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        string ip = reader.GetString(0);
-                        int port = reader.GetInt32(1);
+                        string localIp = reader.GetString(0);
+                        int localPort = reader.GetInt32(1);
                         int deviceId = reader.GetInt32(2);
                         string path = reader.GetString(3);
                         string type = reader.GetString(4);
                         string description = reader.GetString(5);
+                        string remoteIp = reader.GetString(6);
+                        int remotePort = reader.GetInt32(7);
 
-                        string[] itemString = { description, ip, port.ToString(), deviceId.ToString(), type, path };
+                        string[] itemString = { description, remoteIp, remotePort.ToString(), deviceId.ToString(), type, path ,localIp};
                         ListViewItem item = new ListViewItem(itemString);
 
                         listView1.Items.Add(item);
 
-                        SerialACT4238Config config = new SerialACT4238Config(ip, port, path, deviceId, type);
+                        SerialACT4238Config config = new SerialACT4238Config(localIp, localPort, remoteIp, remotePort, path, deviceId, type);
                         Dictionary<int, StrainChannel> channels = LoadChannels(config);
 
                         ACT1238 device = null;
@@ -104,29 +106,35 @@ namespace ACT1238Strain
 
         private void UpdateGridViewCell(object sender, UpdateDataGridViewCellsEventArgs e)
         {
+            List<UpdateArgs> args = e.args;
             if (dataGridView1.InvokeRequired)
             {
                 dataGridView1.BeginInvoke(new MethodInvoker(() => {
-                    dataGridView1.Rows[e.index].Cells[1].Value = e.stamp;
-                    dataGridView1.Rows[e.index].Cells[2].Value = e.digit;
+                    foreach(var item in args)
+                    {
+                        dataGridView1.Rows[item.index].Cells[1].Value = item.stamp;
+                        dataGridView1.Rows[item.index].Cells[2].Value = item.digit;
 
-                    dataGridView1.Rows[e.index].Cells[4].Value = e.temp;
-                    dataGridView1.Rows[e.index].Cells[3].Value = e.strain;
-                    dataGridView1.Rows[e.index].Cells[5].Value = e.state;
-                    dataGridView1.CurrentCell = dataGridView1.Rows[e.index].Cells[0];
+                        dataGridView1.Rows[item.index].Cells[4].Value = item.temp;
+                        dataGridView1.Rows[item.index].Cells[3].Value = item.strain;
+                        dataGridView1.Rows[item.index].Cells[5].Value = item.state;
+                        dataGridView1.CurrentCell = dataGridView1.Rows[item.index].Cells[0];
+                    }
                 }));
             }
             else
             {
-                dataGridView1.Rows[e.index].Cells[1].Value = e.stamp;
-                dataGridView1.Rows[e.index].Cells[2].Value = e.digit;
+                foreach (var item in args)
+                {
+                    dataGridView1.Rows[item.index].Cells[1].Value = item.stamp;
+                    dataGridView1.Rows[item.index].Cells[2].Value = item.digit;
 
-                dataGridView1.Rows[e.index].Cells[4].Value = e.temp;
-                dataGridView1.Rows[e.index].Cells[3].Value = e.strain;
-                dataGridView1.Rows[e.index].Cells[5].Value = e.state;
-                dataGridView1.CurrentCell = dataGridView1.Rows[e.index].Cells[0];
+                    dataGridView1.Rows[item.index].Cells[4].Value = item.temp;
+                    dataGridView1.Rows[item.index].Cells[3].Value = item.strain;
+                    dataGridView1.Rows[item.index].Cells[5].Value = item.state;
+                    dataGridView1.CurrentCell = dataGridView1.Rows[item.index].Cells[0];
+                }
             }
-            
         }
 
         private void buttonStartAcquisit_Click(object sender, EventArgs e)
@@ -141,8 +149,8 @@ namespace ACT1238Strain
 
         private void StartAcquisit()
         {
-            buttonStartAcquisit.Enabled = false;
-            buttonStopAcquisit.Enabled = true;
+            ToolStripMenuItemStart.Enabled = false;
+            ToolStripMenuItemStop.Enabled = true;
             foreach(var dv in deviceList.Values)
             {
                 dv.Start();
@@ -151,8 +159,8 @@ namespace ACT1238Strain
 
         private void StopAcquisit()
         {
-            buttonStartAcquisit.Enabled = true;
-            buttonStopAcquisit.Enabled = false;
+            ToolStripMenuItemStart.Enabled = true;
+            ToolStripMenuItemStop.Enabled = false;
             foreach (var dv in deviceList.Values)
             {
                 dv.Stop();
@@ -209,6 +217,21 @@ namespace ACT1238Strain
                 this.WindowState = FormWindowState.Normal;
                 this.Activate();
             }
+        }
+
+        private void listView1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void ToolStripMenuItemStart_Click(object sender, EventArgs e)
+        {
+            StartAcquisit();
+        }
+
+        private void ToolStripMenuItemStop_Click(object sender, EventArgs e)
+        {
+            StopAcquisit();
         }
     }
 }
